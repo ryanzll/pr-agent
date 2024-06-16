@@ -91,7 +91,7 @@ def convert_to_markdown(output_data: dict, gfm_supported: bool = True, increment
         markdown_text += f"## Incremental PR Reviewer Guide 🔍\n\n"
         markdown_text += f"⏮️ Review for commits since previous PR-Agent review {incremental_review}.\n\n"
     if gfm_supported:
-        markdown_text += "<table>\n<tr>\n"
+        markdown_text += "<table>\n"
         # markdown_text += """<td> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Feedback&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td> <td></td></tr>"""
 
     if not output_data or not output_data.get('review', {}):
@@ -108,7 +108,7 @@ def convert_to_markdown(output_data: dict, gfm_supported: bool = True, increment
                 key_nice = 'Estimated&nbsp;effort&nbsp;to&nbsp;review [1-5]'
             if 'security concerns' in key_nice.lower():
                 value = emphasize_header(value.strip())
-                markdown_text += f"<tr><td> {emoji}&nbsp;<strong>{key_nice}</strong></td><td>\n\n{value}\n\n</td></tr>\n"
+                markdown_text += f"<tr><td> {emoji}&nbsp;<strong>{key_nice}</strong></td><td>\n{value}\n\n</td></tr>\n"
             elif 'can be split' in key_nice.lower():
                 markdown_text += process_can_be_split(emoji, value)
             elif 'key issues to review' in key_nice.lower():
@@ -124,15 +124,17 @@ def convert_to_markdown(output_data: dict, gfm_supported: bool = True, increment
                         if not issue:
                             continue
                         issue = emphasize_header(issue)
+                        issue = replace_code_tags(issue)
                         if i == 0:
-                            markdown_text += f"<td>\n\n{issue}</td></tr>\n"
+                            markdown_text += f"<td>\n{issue}</td></tr>\n"
                         else:
-                            markdown_text += f"<tr>\n<td>\n\n{issue}</td></tr>\n"
+                            markdown_text += f"<tr>\n<td>\n{issue}</td></tr>\n"
                 else:
                     value = emphasize_header(value.strip('-').strip())
-                    markdown_text += f"<tr><td> {emoji}&nbsp;<strong>{key_nice}</strong></td><td>\n\n{value}\n\n</td></tr>\n"
+                    value = replace_code_tags(value)
+                    markdown_text += f"<tr><td> {emoji}&nbsp;<strong>{key_nice}</strong></td><td>\n{value}\n\n</td></tr>\n"
             else:
-                markdown_text += f"<tr><td> {emoji}&nbsp;<strong>{key_nice}</strong></td><td>\n\n{value}\n\n</td></tr>\n"
+                markdown_text += f"<tr><td> {emoji}&nbsp;<strong>{key_nice}</strong></td><td>\n{value}\n\n</td></tr>\n"
         else:
             if len(value.split()) > 1:
                 markdown_text += f"{emoji} **{key_nice}:**\n\n {value}\n\n"
@@ -163,34 +165,38 @@ def convert_to_markdown(output_data: dict, gfm_supported: bool = True, increment
 
 
 def process_can_be_split(emoji, value):
-    # key_nice = "Can this PR be split?"
-    key_nice = "Multiple PR themes"
-    markdown_text = ""
-    if not value or isinstance(value, list) and len(value) == 1:
-        value = "No"
-        markdown_text += f"<tr><td> {emoji}&nbsp;<strong>{key_nice}</strong></td><td>\n\n{value}\n\n</td></tr>\n"
-    else:
-        number_of_splits = len(value)
-        markdown_text += f"<tr><td rowspan={number_of_splits}> {emoji}&nbsp;<strong>{key_nice}</strong></td>\n"
-        for i, split in enumerate(value):
-            title = split.get('title', '')
-            relevant_files = split.get('relevant_files', [])
-            if i == 0:
-                markdown_text += f"<td><details><summary>\nSub-PR theme: <strong>{title}</strong></summary>\n\n"
-                markdown_text += f"<hr>\n"
-                markdown_text += f"Relevant files:\n"
-                markdown_text += f"<ul>\n"
-                for file in relevant_files:
-                    markdown_text += f"<li>{file}</li>\n"
-                markdown_text += f"</ul>\n\n</details></td></tr>\n"
-            else:
-                markdown_text += f"<tr>\n<td><details><summary>\nSub-PR theme: <strong>{title}</strong></summary>\n\n"
-                markdown_text += f"<hr>\n"
-                markdown_text += f"Relevant files:\n"
-                markdown_text += f"<ul>\n"
-                for file in relevant_files:
-                    markdown_text += f"<li>{file}</li>\n"
-                markdown_text += f"</ul>\n\n</details></td></tr>\n"
+    try:
+        # key_nice = "Can this PR be split?"
+        key_nice = "Multiple PR themes"
+        markdown_text = ""
+        if not value or isinstance(value, list) and len(value) == 1:
+            value = "No"
+            markdown_text += f"<tr><td> {emoji}&nbsp;<strong>{key_nice}</strong></td><td>\n\n{value}\n\n</td></tr>\n"
+        else:
+            number_of_splits = len(value)
+            markdown_text += f"<tr><td rowspan={number_of_splits}> {emoji}&nbsp;<strong>{key_nice}</strong></td>\n"
+            for i, split in enumerate(value):
+                title = split.get('title', '')
+                relevant_files = split.get('relevant_files', [])
+                if i == 0:
+                    markdown_text += f"<td><details><summary>\nSub-PR theme:<br><strong>{title}</strong></summary>\n\n"
+                    markdown_text += f"<hr>\n"
+                    markdown_text += f"Relevant files:\n"
+                    markdown_text += f"<ul>\n"
+                    for file in relevant_files:
+                        markdown_text += f"<li>{file}</li>\n"
+                    markdown_text += f"</ul>\n\n</details></td></tr>\n"
+                else:
+                    markdown_text += f"<tr>\n<td><details><summary>\nSub-PR theme:<br><strong>{title}</strong></summary>\n\n"
+                    markdown_text += f"<hr>\n"
+                    markdown_text += f"Relevant files:\n"
+                    markdown_text += f"<ul>\n"
+                    for file in relevant_files:
+                        markdown_text += f"<li>{file}</li>\n"
+                    markdown_text += f"</ul>\n\n</details></td></tr>\n"
+    except Exception as e:
+        get_logger().exception(f"Failed to process can be split: {e}")
+        return ""
     return markdown_text
 
 
